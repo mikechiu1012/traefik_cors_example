@@ -8,6 +8,9 @@ services:
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
+      - "--ping"
+      - "--log.level=DEBUG"
+      - "--entrypoints.whoami.address=:5000"
     ports:
       # The HTTP port
       - "80:80"
@@ -18,9 +21,18 @@ services:
       # So that Traefik can listen to the Docker events
       - /var/run/docker.sock:/var/run/docker.sock
 
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries
   whoami:
     image: traefik/whoami
+    expose:
+      - "5000"
+    entrypoint: ["/whoami", "--port", "5000"]  
     labels:
+      - "traefik.enable=true"
       - "traefik.http.middlewares.testheader.headers.accesscontrolallowmethods=GET,OPTIONS"
       - "traefik.http.middlewares.testheader.headers.accesscontrolalloworiginlist=*"
       - "traefik.http.middlewares.testheader.headers.accesscontrolmaxage=100"
@@ -28,6 +40,10 @@ services:
       - "traefik.http.routers.whoami.middlewares=testheader"
       - "traefik.http.routers.whoami.rule=Host(`localhost`)"
       - "traefik.http.routers.whoami.rule=PathPrefix(`/1`)"
+      - "traefik.http.routers.whoami.entrypoints=whoami"
+    depends_on:
+      traefik:
+        condition: service_healthy
   web:
     image: web:latest
     labels:
